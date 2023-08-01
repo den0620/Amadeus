@@ -1,0 +1,10 @@
+# ignore token files
+*.env
+cpython
+bin
+lib
+lib64
+include
+share
+__pycache__
+*.bin
