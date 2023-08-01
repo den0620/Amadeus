@@ -53,8 +53,8 @@ async def on_message(message):
             history=[]
             for line in prohis:
                 if not line.endswith((".","?","!")): history+=[line+"."]
-                elif line.endswith("\"."): history+=[line[:len(line)-2]+"."]
                 elif line.endswith(" \"."): history+=[line[:len(line)-3]+"."]
+                elif line.endswith("\"."): history+=[line[:len(line)-2]+"."]
                 else: history+=[line]
             prompt=llmcontext+"\n".join(history+[f'"{clientUser.display_name}":'])
             
