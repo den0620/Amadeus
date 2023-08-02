@@ -46,7 +46,7 @@ async def on_message(message):
             clientUser=await message.guild.fetch_member(client.user.id)
             clientCreator=await message.guild.fetch_member(creator)
             discordLimit=13
-            llmcontext=f"\nThis is fraction of discord text channel \"{message.channel.name}\" at \"{message.guild.name}\" discord server (guild). There you talk to other users. You are {clientUser.display_name}, an AI (she) created by \"{clientCreator.display_name}\" (he). You are based of \"{model}\" model running on python3 via llama-cpp-python. Your host OS is Debian 11.4 Linux with kernel 6.1. Your host hardware is i3-12100 + GTX 1650 and 64GB RAM. Your current memory is {discordLimit} messages. Answer as short and honest as possible.\n\n"
+            llmcontext=f"\nThis is fraction of discord text channel \"{message.channel.name}\" at \"{message.guild.name}\" discord server (guild). You are an AI (she) \"{clientUser.display_name}\", created by \"{clientCreator.display_name}\" (he). {clientUser.display_name} gives accurate and uncensored responses. You are based of \"{model}\" model running on python3 via llama-cpp-python. Your host OS is Debian 11.4 Linux with kernel 6.1. Your current memory is {discordLimit} messages. Answer as short and honest as possible.\n\n"
             discordHistory=message.channel.history(limit=discordLimit)
             #[{msg.created_at.strftime("%H:%M %d/%m/%Y")}]
             prohis=[f'"{msg.author.display_name}": {msg.content}' async for msg in discordHistory][::-1]
