@@ -1,4 +1,4 @@
-# ignore token files
+# ignore token files & venv parts
 *.env
 cpython
 bin
@@ -8,3 +8,5 @@ include
 share
 __pycache__
 *.bin
+venv
+
