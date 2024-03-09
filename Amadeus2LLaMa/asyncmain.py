@@ -122,7 +122,7 @@ LLM_USERS=[573799615074271253,527505544261664798,396961790778540032,579639623668
 LLM_CHANNELS=[1092510095029567519,1091400893406126141,1175364273061494785,1176156428168351804]
 LLM_LOCK=0
 clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key="BAMBAMBIMBIM")
-BANNED_STRINGS=["\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL","<|im","<|","\n \"","\nCurrent", "</s>"]
+BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL","<|im","<|","\n \"","\nCurrent", "</s>"]
 discordLimit=15
 maxTokens=386
 curTemperature=0.6
