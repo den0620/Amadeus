@@ -288,7 +288,7 @@ async def on_message(message):
 
 @amadeus.command(name="skip",description="skip your turn in conversation")
 async def skipturn(message):
-    await message.defer()
+    await message.respond("Force called on_message, you can hide that",ephemeral=True)
     await on_message(message)
 
 
