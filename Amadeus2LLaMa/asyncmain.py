@@ -286,6 +286,13 @@ async def on_message(message):
 
 
 
+@amadeus.command(name="skip",description="skip your turn in conversation")
+async def skipturn(message):
+    await message.defer()
+    await on_message(message)
+
+
+
 @amadeus.command(name="viewconf",description="view Amadeus config")
 async def viewconf(message):
     if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","systemPrompt")]):
