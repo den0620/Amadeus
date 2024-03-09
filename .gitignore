@@ -9,4 +9,5 @@ share
 __pycache__
 *.bin
 venv
+last-log
 
