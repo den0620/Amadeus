@@ -299,7 +299,7 @@ async def viewconf(message):
         await message.respond("Please fully initialise config (/amadeus configure)")
         return
     else:
-        await message.respond(f"""```{LLM_CONF[f"{message.guild.id}"]}
+        await message.respond(f"""```python\n{LLM_CONF[f"{message.guild.id}"]}
 Available prompt vars are:
 {llmContextVars}
 Keep in mind prompt will be processed with strftime```""")
@@ -337,12 +337,12 @@ async def hardware(message, operator: discord.Option(str,name="exec",description
     if message.author.id in LLM_ADMINS:
         if operator == "python":
             try:
-                ans=eval(script)
+                ans="python\n"+eval(script)
             except Exception as e:
                 ans=e
         elif operator == "bash":
             try: 
-                ans=subprocess.check_output(script, shell=True).decode()
+                ans="bash\n"+subprocess.check_output(script, shell=True).decode()
             except Exception as e:
                 ans=e
     else:
