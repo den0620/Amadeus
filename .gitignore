@@ -10,4 +10,4 @@ __pycache__
 *.bin
 venv
 last-log
-
+llama-cpp-python
