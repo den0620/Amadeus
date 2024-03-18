@@ -117,11 +117,13 @@ client.remove_command("help")
 
 
 LLM_ADMINS=[573799615074271253,527505544261664798]
-#          den0620            DegrOwenn          lexonixeo         Twi1ightM4ks        VolnyV             NeNazvali            dude0_o
-LLM_USERS=[573799615074271253,527505544261664798,396961790778540032,579639623668727808,489895341496467456,547738827410898965,676476841707700235,677151784795504651,499442614722887690]
+#          den0620            DegrOwenn
 LLM_CHANNELS=[1092510095029567519,1091400893406126141,1175364273061494785,1176156428168351804]
 LLM_LOCK=0
-clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key="BAMBAMBIMBIM")
+if __name__=="__main__":
+    with open(f"{os.path.dirname(os.path.realpath(__file__))}/APIKEY.env","r") as t:
+        APIKEY=str(t.read())
+clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key=APIKEY)
 BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL","<|im","<|","\n \"","\nCurrent", "</s>"]
 discordLimit=15
 maxTokens=386
@@ -137,6 +139,7 @@ currentPrompter=availablePrompters[0]
 amadeus=client.create_group('amadeus','AmadeusInfo')
 
 
+LLM_USERS=[573799615074271253,527505544261664798,396961790778540032,579639623668727808,489895341496467456,547738827410898965,676476841707700235,677151784795504651,499442614722887690]
 servadminlist=[573799615074271253,547738827410898965,527505544261664798,489895341496467456]
 ServComs=client.create_group('server','serverInfo')
 ServIns='хуй'
@@ -210,7 +213,7 @@ async def status_changer():
     gpus=GPUtil.getGPUs()
     if int(gpus[0].memoryUsed)!=previnfo[0] or int(gpus[0].temperature)!=previnfo[1]:
         status=discord.Status.dnd
-        ActivityName=f"{gpus[0].name}: {int(gpus[0].memoryUsed)}MiB/{int(gpus[0].memoryTotal)}MiB @ {int(gpus[0].temperature)}°C"
+        ActivityName=f"{gpus[0].name}@{int(gpus[0].temperature)}°C {int(gpus[0].memoryUsed)}MiB/{int(gpus[0].memoryTotal)}MiB"
         await client.change_presence(status=status, activity=discord.Activity(type=discord.ActivityType.watching,name=ActivityName,emoji=None))
     previnfo=(int(gpus[0].memoryUsed),int(gpus[0].temperature))
 
@@ -447,14 +450,13 @@ async def on_voice_state_update(member,before,after):
 
 
 if __name__=="__main__":
-    print("__main__, reading TOKEN and APIKEY...")
+    print("__main__, reading TOKEN and CONF...")
     with open(f"{os.path.dirname(os.path.realpath(__file__))}/TOKEN.env","r") as t:
         TOKEN=str(t.read())
-    with open(f"{os.path.dirname(os.path.realpath(__file__))}/APIKEY.env","r") as t:
-        APIKEY=str(t.read())
     with open(f"{os.path.dirname(os.path.realpath(__file__))}/config/llm.conf","r") as t:
         LLM_CONF=json.load(t)
     LLM_CONF_OLD=copy.deepcopy(LLM_CONF)
     print("Starting discord instance...")
     client.run(TOKEN)
 
+LLM_USERS=[573799615074271253,527505544261664798,396961790778540032,579639623668727808,489895341496467456,547738827410898965,676476841707700235,677151784795504651,499442614722887690]
