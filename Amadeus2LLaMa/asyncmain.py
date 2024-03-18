@@ -123,7 +123,7 @@ LLM_LOCK=0
 if __name__=="__main__":
     with open(f"{os.path.dirname(os.path.realpath(__file__))}/APIKEY.env","r") as t:
         APIKEY=str(t.read())
-clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key=APIKEY)
+clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key=APIKEY.rstrip())
 BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL","<|im","<|","\n \"","\nCurrent", "</s>"]
 discordLimit=15
 maxTokens=386
