@@ -11,3 +11,4 @@ __pycache__
 venv
 last-log
 llama-cpp-python
+llm.conf
