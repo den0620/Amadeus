@@ -148,6 +148,54 @@ async def get_model():
     models=await clientOAI.models.list()
     return models.data[0].id
 
+async def llm_completion_itr(message,prompt,model,maxtokens):
+    global LLM_LOCK
+    try:
+        llmResponse=await clientOAI.completions.create(
+                model=model,
+                prompt=prompt,
+                max_tokens=maxTokens,
+                temperature=LLM_CONF[f"{message.guild.id}"]["curTemp"],
+                presence_penalty=LLM_CONF[f"{message.guild.id}"]["presencePenalty"],
+                frequency_penalty=LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"],
+                n=1,
+                echo=False,
+                stream=True,
+                #stop=[],
+                top_p=1
+                )
+        full_content=f"`{prompt}`"
+        old_content=f"`{prompt}`"
+        tokens=0
+        index=len(prompt)
+        T1=time.time()
+        async for event in llmResponse:
+            chunk=event.choices[0].text
+            print(chunk,end="")
+            full_content+=chunk
+            tokens+=1
+            T2 = time.time()
+            if T2 - T1 > 1:  # > 1 seconds later
+                T1 = T2
+                try:
+                    await message.edit_original_message(content=full_content[len(old_content):])
+                except:
+                    await message.edit_original_message(content="couldnt update stream")
+                    LLM_LOCK=0
+                    return
+            index+=1
+        if maxtokens==tokens or maxtokens-1==tokens:
+            await message.edit_original_message(content=full_content[len(old_content):]+" `<TL>`")
+        else:
+            await message.edit_original_message(content=full_content[len(old_content):]+" `<EOT>`")
+        print(f"\nTotal tokens generated: {tokens}\n")
+        LLM_LOCK=0
+    except Exception as e:
+        print(e)
+        await message.edit_original_message(content=f"```{e}```")
+        LLM_LOCK=0
+
+
 async def llm_completion(message,prompt,model,maxtokens):
     global LLM_LOCK
     try:
@@ -294,6 +342,22 @@ async def skipturn(message):
     await message.respond("Force called on_message, you can hide that",ephemeral=True)
     await on_message(message)
 
+
+@amadeus.command(name="generate",description="raw OAI Completion call (uses server's config)")
+async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'prompt', 'ru': 'промпт'},required=True)):
+    global LLM_LOCK
+    if not LLM_LOCK:
+        LLM_LOCK=1
+        if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter")]):
+            LLM_LOCK=0
+            await message.channel.send("Please fully initialise config (/amadeus configure)")
+            return
+        else:
+            maxTokens=LLM_CONF[f"{message.guild.id}"]["maxTokens"]
+
+        llmModel=await get_model()
+        msg = await message.respond("Reading tokens... <a:loadingP:1055187594973036576>")
+        await llm_completion_itr(msg,prompt,llmModel,maxTokens)
 
 
 @amadeus.command(name="viewconf",description="view Amadeus config")
