@@ -165,9 +165,9 @@ async def llm_completion_itr(message,prompt,model,maxtokens):
                 top_p=1
                 )
         full_content=f"`{prompt}`"
-        old_content=f"`{prompt}`"
+        old_content=f""
         tokens=0
-        index=len(prompt)
+        index=0
         T1=time.time()
         async for event in llmResponse:
             chunk=event.choices[0].text
