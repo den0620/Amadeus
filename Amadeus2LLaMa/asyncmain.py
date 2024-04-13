@@ -106,6 +106,11 @@ async def template_gemma(message,init,msgs,gen):
     return f"""{init}
 """ + "\n".join(["<start_of_turn>"+msg+"<end_of_turn>" for msg in msgs]) + f"\n<start_of_turn>{gen}"
 
+async def template_guanaco(message,init,msgs,gen):
+    clientUser=await message.guild.fetch_member(client.user.id)
+    return f"""### System: {init}
+""" + "\n".join([f"### {msg.author.display_name}: {msg.content}" for msg in msgs]) + f"\n### {clientUser.display_name}: "
+
 # ===== /Prompters =====
 
 
