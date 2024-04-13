@@ -108,8 +108,11 @@ async def template_gemma(message,init,msgs,gen):
 
 async def template_guanaco(message,init,msgs,gen):
     clientUser=await message.guild.fetch_member(client.user.id)
+    discordLimit=LLM_CONF[f"{message.guild.id}"]["histLimit"]
+    discordHistory=message.channel.history(limit=discordLimit)
+    llmHistory=[msg async for msg in discordHistory][::-1]
     return f"""### System: {init}
-""" + "\n".join([f"### {msg.author.display_name}: {msg.content}" for msg in msgs]) + f"\n### {clientUser.display_name}: "
+""" + "\n".join([f"### {msg.author.display_name}: {msg.content}" for msg in llmHistory]) + f"\n### {clientUser.display_name}: "
 
 # ===== /Prompters =====
 
