@@ -114,6 +114,15 @@ async def template_guanaco(message,init,msgs,gen):
     return f"""### System: {init}
 """ + "\n".join([f"### {msg.author.display_name}: {msg.content}" for msg in llmHistory]) + f"\n### {clientUser.display_name}: "
 
+async def template_llama3(message,init,msgs,gen):
+    clientUser=await message.guild.fetch_member(client.user.id)
+    discordLimit=LLM_CONF[f"{message.guild.id}"]["histLimit"]
+    discordHistory=message.channel.history(limit=discordLimit)
+    llmHistory=[msg async for msg in discordHistory][::-1]
+    return f"""<|start_header_id|>system<|end_header_id|>
+
+{init}<|eot_id|>\n""" + "\n".join([f"<|start_header_id|>{msg.author.display_name}<|end_header_id|>\n\n{msg.content}<|eot_id|>" for msg in llmHistory]) + f"""\n<|start_header_id|>{clientUser.display_name}<|end_header_id|>\n\n"""
+
 # ===== /Prompters =====
 
 
@@ -417,7 +426,7 @@ async def hardware(message, operator: discord.Option(str,name="exec",description
                 ans=e
         elif operator == "bash":
             try: 
-                ans="bash\n"+subprocess.check_output(script, shell=True).decode()
+                ans="ansi\n"+subprocess.check_output(script, shell=True).decode()
             except Exception as e:
                 ans=e
     else:
