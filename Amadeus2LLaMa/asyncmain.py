@@ -119,9 +119,9 @@ async def template_llama3(message,init,msgs,gen):
     discordLimit=LLM_CONF[f"{message.guild.id}"]["histLimit"]
     discordHistory=message.channel.history(limit=discordLimit)
     llmHistory=[msg async for msg in discordHistory][::-1]
-    return f"""<|start_header_id|>system<|end_header_id|>
+    return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-{init}<|eot_id|>\n""" + "\n".join([f"<|start_header_id|>{msg.author.display_name}<|end_header_id|>\n\n{msg.content}<|eot_id|>" for msg in llmHistory]) + f"""\n<|start_header_id|>{clientUser.display_name}<|end_header_id|>\n\n"""
+{init}<|eot_id|>""" + "".join([f"<|start_header_id|>{msg.author.display_name}<|end_header_id|>\n\n{msg.content}<|eot_id|>" for msg in llmHistory]) + f"""<|start_header_id|>{clientUser.display_name}<|end_header_id|>\n\n"""
 
 # ===== /Prompters =====
 
@@ -141,7 +141,7 @@ if __name__=="__main__":
     with open(f"{os.path.dirname(os.path.realpath(__file__))}/APIKEY.env","r") as t:
         APIKEY=str(t.read())
 clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key=APIKEY.rstrip())
-BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL","<|im","<|","\n \"","\nCurrent", "</s>"]
+BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL", "<|"]
 discordLimit=15
 maxTokens=386
 curTemperature=0.6
