@@ -359,6 +359,13 @@ async def skipturn(message):
     await message.respond("Force called on_message, you can hide that",ephemeral=True)
     await on_message(message)
 
+@amadeus.command(name="pov",description="write text as bot")
+async def sendtext(message, text: discord.Option(str,name_localizations={'en-US': 'text', 'ru': 'текст'},description_localizations={'en-US': 'just a text', 'ru': 'просто текст'},required=True)):
+    if message.author.id in LLM_ADMINS: 
+        await message.respond("Force called message.channel.send, you can hide that",ephemeral=True)
+        await message.channel.send(text)
+    else:
+        await message.respond("You cant do that",ephemeral=True)
 
 @amadeus.command(name="generate",description="raw OAI Completion call (uses server's config)")
 async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'prompt', 'ru': 'промпт'},required=True)):
