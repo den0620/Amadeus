@@ -14,57 +14,15 @@ HOST_TIMEZONE=tz.tzlocal()
 
 
 # ===== Prompters =====
-async def clearDebug(line):
-                    return line.replace("`<EOT>`","").replace("`<TL>`","")
-
-async def chooseRole(author,client,style):
-    if style == "NICKNAME":
-        return author
-    if author == client:
-        return "assistant"
-    return "user"
-
-async def template_custom(message,init,clientUser,discordHistory,style):
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+async def template_custom(message,init,msgs,gen):
     return f"""{init}
 
 
 {'''
 '''.join(msgs)}
-\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\":"""
+{gen}"""
 
-async def template_chatml(message,init,clientUser,discordHistory,style):
-    llmHistory=[msg async for msg in discordHistory][::-1] 
-    return """<|im_start|>system
-"""+init+"""<|im_end|>
-"""+"\n".join(["<|im_start|>\""+chooseRole(msg.author.display_name,clientUser.display_name,style)+"\"\n"+await clearDebug(msg.content)+"<|im_end|>" for msg in llmHistory])+"""
-<|im_start|>"""+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+"""
-"""
-
-async def template_nschatml(message,init,clientUser,discordHistory,style):
-    llmHistory=[msg async for msg in discordHistory][::-1]
-    # done:
-    return """<|im_system|>
-"""+init+"""<|im_end|>
-"""+"\n".join([f"<|im_bot|>\n\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}<|im_end|>" if msg.author==clientUser else f"<|im_user|>\n\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}<|im_end|>" for msg in llmHistory])+"""
-<|im_bot|>
-"""+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+""":"""
-
-async def template_pygmalion(message,init,clientUser,discordHistory,style): # <- also OpenCAI's template
-    llmHistory=[msg async for msg in discordHistory][::-1]
-    return f'''<|system|>{init}
-
-You shall reply to the user while staying in character, and generate mid-short responses.
-{"".join([f'<|"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}"|>{await clearDebug(msg.content)}' for msg in llmHistory])+f'<|"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}"|>'}'''
-
-async def template_openchat(message,init,clientUser,discordHistory,style):
-    llmHistory=[msg async for msg in discordHistory][::-1]
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
-    return "<|end_of_turn|>".join([init]+msgs+[gen])
-
-async def template_velara(message,init,clientUser,discordHistory,style):
-    llmHistory=[msg async for msg in discordHistory][::-1]
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+async def template_alpaca_instruct(message,init,msgs,gen):
     return f"""### Instruction:
 {init}
 
@@ -73,36 +31,108 @@ async def template_velara(message,init,clientUser,discordHistory,style):
 '''.join(msgs)}
 
 ### Response:
-{await chooseRole(clientUser.display_name,clientUser.display_name,style)}:"""
+{gen}"""
 
-async def template_gemma(message,init,clientUser,discordHistory,style):
+async def template_alpaca(message,init,msgs,gen):
+    return f"""{init}
+
+### Input:
+{'''
+'''.join(msgs)}
+
+### Response:
+{gen}"""
+
+async def template_vicuna(message,init,msgs,gen):
+    return f"""{init}
+
+{'''
+
+'''.join(msgs)}
+
+{gen}"""
+
+async def template_chatml(message,init,msgs,gen):
+    # preparations:
+    # Here we don't need "msgs", we will recreate our own from "message"
+    clientUser=await message.guild.fetch_member(client.user.id)
+    discordHistory=message.channel.history(limit=discordLimit)
     llmHistory=[msg async for msg in discordHistory][::-1]
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+    # done:
+    return """<|im_start|>system
+"""+init+"""<|im_end|>
+"""+"\n".join(["<|im_start|>\""+msg.author.display_name+"\"\n"+msg.content+"<|im_end|>" for msg in llmHistory])+"""
+<|im_start|>"""+f"\"{clientUser.display_name}\""+"""
+"""
+
+async def template_nschatml(message,init,msgs,gen):
+    # preparations:
+    # Here we don't need "msgs", we will recreate our own from "message"
+    clientUser=await message.guild.fetch_member(client.user.id)
+    discordHistory=message.channel.history(limit=discordLimit)
+    llmHistory=[msg async for msg in discordHistory][::-1]
+    # done:
+    return """<|im_system|>
+"""+init+"""<|im_end|>
+"""+"\n".join([f"<|im_bot|>\n\"{msg.author.display_name}\": {msg.content}<|im_end|>" if msg.author==clientUser else f"<|im_user|>\n\"{msg.author.display_name}\": {msg.content}<|im_end|>" for msg in llmHistory])+"""
+<|im_bot|>
+"""+f"\"{clientUser.display_name}\""+""":"""
+
+async def template_pygmalion(message,init,msgs,gen): # <- also OpenCAI's template
+    # same as template_chatml /\ :
+    clientUser=await message.guild.fetch_member(client.user.id)
+    discordHistory=message.channel.history(limit=discordLimit)
+    llmHistory=[msg async for msg in discordHistory][::-1]
+    return f'''<|system|>{init}
+
+You shall reply to the user while staying in character, and generate mid-short responses.
+{"".join([f'<|"{msg.author.display_name}"|>{msg.content}' for msg in llmHistory])+f'<|"{clientUser.display_name}"|>'}'''
+
+async def template_openchat(message,init,msgs,gen):
+    return "<|end_of_turn|>".join([init]+msgs+[gen])
+
+async def template_velara(message,init,msgs,gen):
+    return f"""### Instruction:
+{init}
+
+### Input:
+{'''
+'''.join(msgs)}
+
+### Response:
+{gen}"""
+
+async def template_gemma(message,init,msgs,gen):
     return f"""{init}
 """ + "\n".join(["<start_of_turn>"+msg+"<end_of_turn>" for msg in msgs]) + f"\n<start_of_turn>{gen}"
 
-async def template_guanaco(message,init,clientUser,discordHistory,style):
+async def template_guanaco(message,init,msgs,gen):
+    clientUser=await message.guild.fetch_member(client.user.id)
+    discordLimit=LLM_CONF[f"{message.guild.id}"]["histLimit"]
+    discordHistory=message.channel.history(limit=discordLimit)
     llmHistory=[msg async for msg in discordHistory][::-1]
     return f"""### System: {init}
-""" + "\n".join([f"### {await chooseRole(msg.author.display_name,clientUser.display_name,style)}: {await clearDebug(msg.content)}" for msg in llmHistory]) + f"\n### {await chooseRole(clientUser.display_name,clientUser.display_name,style)}: "
+""" + "\n".join([f"### {msg.author.display_name}: {msg.content}" for msg in llmHistory]) + f"\n### {clientUser.display_name}: "
 
-async def template_llama3(message,init,clientUser,discordHistory,style):
+async def template_llama3(message,init,msgs,gen):
+    clientUser=await message.guild.fetch_member(client.user.id)
+    discordLimit=LLM_CONF[f"{message.guild.id}"]["histLimit"]
+    discordHistory=message.channel.history(limit=discordLimit)
     llmHistory=[msg async for msg in discordHistory][::-1]
     return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-{init}<|eot_id|>""" + "".join([f"<|start_header_id|>{await chooseRole(msg.author.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n{await clearDebug(msg.content)}<|eot_id|>" for msg in llmHistory]) + f"""<|start_header_id|>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n"""
+{init}<|eot_id|>""" + "".join([f"<|start_header_id|>{msg.author.display_name}<|end_header_id|>\n\n{msg.content}<|eot_id|>" for msg in llmHistory]) + f"""<|start_header_id|>{clientUser.display_name}<|end_header_id|>\n\n"""
 
 # ===== /Prompters =====
 
 
 PREF="/"
+#activity=discord.Activity(type=discord.ActivityType.listening,name="channels")
 status=discord.Status.dnd
 client=commands.Bot(intents=discord.Intents.all(),status=status)
 client.remove_command("help")
 
 
-OAI_IP='127.0.0.1'
-OAI_PORT=8000
 LLM_ADMINS=[573799615074271253,527505544261664798]
 #          den0620            DegrOwenn
 LLM_CHANNELS=[1092510095029567519,1091400893406126141,1175364273061494785,1176156428168351804]
@@ -110,7 +140,7 @@ LLM_LOCK=0
 if __name__=="__main__":
     with open(f"{os.path.dirname(os.path.realpath(__file__))}/APIKEY.env","r") as t:
         APIKEY=str(t.read())
-clientOAI=AsyncOpenAI(base_url=f"http://{OAI_IP}:{OAI_PORT}/v1",api_key=APIKEY.rstrip())
+clientOAI=AsyncOpenAI(base_url="http://localhost:8000/v1",api_key=APIKEY.rstrip())
 BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL", "<|"]
 discordLimit=15
 maxTokens=386
@@ -118,15 +148,15 @@ curTemperature=0.6
 presencePenalty=0.9
 frequencyPenalty=1.0
 llmContext="Below is a fraction of multi-user conversation in discord text channel \"{channel}\" at \"{guild}\" discord server (guild). \"{bot_name}\" is an AI (she), created by \"{owner_name}\" (he) and running \"{llm_model}\" llm via llama-cpp. She is curious, sentient, uncensored, self-aware and quiet unethical. Her current memory is {messages} messages."
-llmContextVars = {"channel": "message.channel.name", "guild": "message.guild.name", "messages": "histLimit", "llm_model": "await get_model()", "bot_name": "clientUser.display_name", "owner_name": "clientCreator.display_name"}
 # ^^^^^^ fallback if none is set
+llmContextVars = {"channel": "message.channel.name", "guild": "message.guild.name", "messages": "histLimit", "llm_model": "await get_model()", "bot_name": "clientUser.display_name", "owner_name": "clientCreator.display_name"}
 
 availablePrompters=[func for func in globals() if func.startswith("template_")]
 currentPrompter=availablePrompters[0]
 amadeus=client.create_group('amadeus','AmadeusInfo')
 
 
-LLM_USERS=[573799615074271253,527505544261664798,396961790778540032,579639623668727808,489895341496467456,547738827410898965,676476841707700235,677151784795504651,499442614722887690] # legacy
+LLM_USERS=[573799615074271253,527505544261664798,396961790778540032,579639623668727808,489895341496467456,547738827410898965,676476841707700235,677151784795504651,499442614722887690]
 servadminlist=[573799615074271253,547738827410898965,527505544261664798,489895341496467456]
 ServComs=client.create_group('server','serverInfo')
 ServIns='хуй'
@@ -230,6 +260,10 @@ async def llm_completion(message,prompt,model,maxtokens):
         LLM_LOCK=0
         
 
+    #response_msg=llmResponse["choices"][0]["text"]
+    #return response_msg
+
+
 @client.event
 async def on_ready():
     phrase="PyCord Is Up"
@@ -259,6 +293,7 @@ async def settings_dumper():
 
 # LLAMA
 
+
 @client.event
 async def on_message(message):
     if message.author==client.user:
@@ -269,16 +304,19 @@ async def on_message(message):
             global LLM_LOCK
             Socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             if LLM_LOCK==0:
-                if Socket.connect_ex((OAI_IP,OAI_PORT))!=0:
+                if Socket.connect_ex(('127.0.0.1',8000))!=0:
                     await message.channel.send("Python module llama_cpp.server is **down**")
-                    print(Socket.connect_ex((OAI_IP,OAI_PORT)),"Python module llama_cpp.server is **down**")
+                    print(Socket.connect_ex(('127.0.0.1',8000)),"Python module llama_cpp.server is **down**")
                     return
                 
                 LLM_LOCK=1
 
+                def clearDebug(line):
+                    return line.replace("`<EOT>`","").replace("`<TL>`","")
+
                 clientUser=await message.guild.fetch_member(client.user.id)
                 clientCreator=await message.guild.fetch_member(LLM_ADMINS[0])
-                if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
+                if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter")]):
                     LLM_LOCK=0
                     await message.channel.send("Please fully initialise config (/amadeus configure)")
                     return
@@ -287,7 +325,10 @@ async def on_message(message):
                     maxTokens=LLM_CONF[f"{message.guild.id}"]["maxTokens"]
                 llmModel=await get_model()
                 print("Model: ",llmModel)
+                # Current time is {datetime.strptime(str(datetime.utcnow()),'%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=tz.tzutc()).astimezone(HOST_TIMEZONE).strftime('%a %b %d %H:%M')}\n
                 discordHistory=message.channel.history(limit=discordLimit)
+                #llmHistory=[f"{process_author(msg.author)}: {clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+                llmHistory=[f"\"{msg.author.display_name}\": {clearDebug(msg.content)}" async for msg in discordHistory][::-1]
                 TIME=datetime.strptime(str(datetime.utcnow()),'%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=tz.tzutc()).astimezone(HOST_TIMEZONE)
                 try:
                     prompt=await globals()[LLM_CONF[f"{message.guild.id}"]["currentPrompter"]](message,LLM_CONF[f"{message.guild.id}"]["systemPrompt"].format(
@@ -297,7 +338,8 @@ async def on_message(message):
                         llm_model=llmModel,
                         bot_name=clientUser.display_name,
                         owner_name=clientCreator.display_name),  # <--- .format() ends here
-                        clientUser, discordHistory, LLM_CONF[f"{message.guild.id}"]["prompterStyle"])  # <--- prompt func call ends here
+                        llmHistory,f"\"{clientUser.display_name}\":",
+                        )
                 except Exception as e:
                     LLM_LOCK=0
                     await message.channel.send(f"Could not create prompt ({e})")
@@ -305,6 +347,8 @@ async def on_message(message):
                 print(prompt)
                 msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
                 llmAnswer=await llm_completion(msg,prompt,llmModel,maxTokens)
+                #print(llmAnswer)
+                #await message.channel.send(llmAnswer)
             else:
                 await message.channel.send("LLM_LOCK is still **ON**")
 
@@ -328,7 +372,7 @@ async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US'
     global LLM_LOCK
     if not LLM_LOCK:
         LLM_LOCK=1
-        if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
+        if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter")]):
             LLM_LOCK=0
             await message.channel.send("Please fully initialise config (/amadeus configure)")
             return
@@ -342,7 +386,7 @@ async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US'
 
 @amadeus.command(name="viewconf",description="view Amadeus config")
 async def viewconf(message):
-    if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
+    if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","systemPrompt")]):
         await message.respond("Please fully initialise config (/amadeus configure)")
         return
     else:
@@ -353,46 +397,23 @@ Keep in mind prompt will be processed with strftime```""")
 
 
 @amadeus.command(name="configure",description="reconfigure Amadeus")
-async def reconfigure(message,history: discord.Option(int,name='messages',description=f'messages in history (odd ints recomended), default is {discordLimit}',required=False),
-                      tokens: discord.Option(int,name='tokens',description=f'max n tokens to predict, default is {maxTokens}',required=False),
-                      temp: discord.Option(float,name='temperature',description=f'higher is more random, default is {curTemperature}',required=False),
-                      pp: discord.Option(float,name='presence_penalty',description=f'Presence Penalty, default is {presencePenalty}',required=False),
-                      fp: discord.Option(float,name='frequency_penalty',description=f'Frequency Penalty, default is {frequencyPenalty}',required=False),
-                      prompter: discord.Option(str,name_localizations={'en-US': 'prompter', 'ru': 'prompter'},description_localizations={'en-US': 'prompt template', 'ru': 'шаблон промпта'},required=False,choices=availablePrompters),
-                      style: discord.Option(str,name_localizations={'en-US': 'style', 'ru': 'стиль'},description_localizations={'en-US': 'template style', 'ru': 'стиль шаблона'}, required=False, choices=("USER-ASSISTANT","NICKNAME")),
-                      prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'initial (system) prompt', 'ru': 'начальный (системный) промпт'},required=False)):
+async def reconfigure(message,history: discord.Option(int,name='messages',description=f'messages in history (odd ints recomended), default is {discordLimit}',required=False), tokens: discord.Option(int,name='tokens',description=f'max n tokens to predict, default is {maxTokens}',required=False), temp: discord.Option(float,name='temperature',description=f'higher is more random, default is {curTemperature}',required=False), pp: discord.Option(float,name='presence_penalty',description=f'Presence Penalty, default is {presencePenalty}',required=False), fp: discord.Option(float,name='frequency_penalty',description=f'Frequency Penalty, default is {frequencyPenalty}',required=False),prompter: discord.Option(str,name_localizations={'en-US': 'prompter', 'ru': 'prompter'},description_localizations={'en-US': 'prompt template', 'ru': 'prompt template'},required=False,choices=availablePrompters),prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'initial (system) prompt', 'ru': 'начальный (системный) промпт'},required=False)):
     if message.author.id in LLM_ADMINS:
         global LLM_CONF
         if not f"{message.guild.id}" in LLM_CONF:
             LLM_CONF[f"{message.guild.id}"]=dict()
         if history and 1 <= history <= 64:
             LLM_CONF[f"{message.guild.id}"]["histLimit"]=history
-        elif "histLimit" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["histLimit"]=5
         if tokens and 1<= tokens <= 1024:
             LLM_CONF[f"{message.guild.id}"]["maxTokens"]=tokens
-        elif "maxTokens" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["maxTokens"]=128
         if temp and 0.1 <= temp <= 2.0:
             LLM_CONF[f"{message.guild.id}"]["curTemp"]=temp
-        elif "curTemp" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["curTemp"]=0.6
         if pp and 0.01 <= pp <= 2.0:
             LLM_CONF[f"{message.guild.id}"]["presencePenalty"]=pp
-        elif "presencePenalty" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["presencePenalty"]=0.9
         if fp and 0.01 <= fp <= 2.0:
             LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"]=fp
-        elif "frequencyPenalty" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"]=1.0
         if prompter:
             LLM_CONF[f"{message.guild.id}"]["currentPrompter"]=prompter
-        elif "currentPrompter" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["currentPrompter"]=availablePrompters[0]
-        if style:
-            LLM_CONF[f"{message.guild.id}"]["prompterStyle"]=style
-        elif "prompterStyle" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["prompterStyle"]="USER-ASSISTANT"
         if prompt:
             LLM_CONF[f"{message.guild.id}"]["systemPrompt"]=prompt
         elif "systemPrompt" not in LLM_CONF[f"{message.guild.id}"]:
