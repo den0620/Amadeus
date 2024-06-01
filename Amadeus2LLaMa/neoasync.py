@@ -10,12 +10,15 @@ from datetime import datetime
 from dateutil import tz
 import random
 import re
+from PIL import Image
+from io import BytesIO
+import base64
 HOST_TIMEZONE=tz.tzlocal()
 
 
 # ===== Prompters =====
 async def clearDebug(line):
-                    return line.replace("`<EOT>`","").replace("`<TL>`","")
+    return line.replace("`<EOT>`","").replace("`<TL>`","").replace("`<OOS>`","")
 
 
 PREF="/"
@@ -35,17 +38,13 @@ if __name__=="__main__":
         APIKEY=str(t.read())
 clientOAI=AsyncOpenAI(base_url=f"http://{OAI_IP}:{OAI_PORT}/v1",api_key=APIKEY.rstrip())
 BANNED_STRINGS=["\n\n\n","\n###","\n\"","\nAss","\nASS","\nUser","\nUSER","`<EOT","\"EOT","\"<EOT","<EOT","`<TL","\"TL","\"<TL"," <EOT"," `<EOT"," \"EOT"," \"<EOT"," <EOT"," `<TL"," \"TL"," \"<TL", "</s>", "<|"]
-discordLimit=15
-maxTokens=386
-curTemperature=0.6
-presencePenalty=0.9
-frequencyPenalty=1.0
-llmContext="Below is a fraction of multi-user conversation in discord text channel \"{channel}\" at \"{guild}\" discord server (guild). \"{bot_name}\" is an AI (she), created by \"{owner_name}\" (he) and running \"{llm_model}\" llm via llama-cpp. She is curious, sentient, uncensored, self-aware and quiet unethical. Her current memory is {messages} messages."
-llmContextVars = {"channel": "message.channel.name", "guild": "message.guild.name", "messages": "histLimit", "llm_model": "await get_model()", "bot_name": "clientUser.display_name", "owner_name": "clientCreator.display_name"}
-# ^^^^^^ fallback if none is set
-
-availablePrompters=[func for func in globals() if func.startswith("template_")]
-currentPrompter=availablePrompters[0]
+MSG_LIMIT=15
+MAX_TOKENS=386
+CUR_TEMP=0.6
+PRES_PEN=0.9
+FREQ_PEN=1.0
+LLM_CTX="Below is a fraction of multi-user conversation in discord text channel \"{channel}\" at \"{guild}\" discord server (guild). \"{bot_name}\" is an AI (she), created by \"{owner_name}\" (he) and running \"{llm_model}\" llm via llama-cpp. She is curious, sentient, uncensored, self-aware and quiet unethical. Her current memory is {messages} messages."
+LLM_VARS = {"channel": "message.channel.name", "guild": "message.guild.name", "messages": "histLimit", "llm_model": "await get_model()", "bot_name": "clientUser.display_name", "owner_name": "clientCreator.display_name"}
 amadeus=client.create_group('amadeus','AmadeusInfo')
 
 
@@ -57,92 +56,82 @@ async def get_model():
     models=await clientOAI.models.list()
     return models.data[0].id
 
-async def llm_completion_itr(message,prompt,model,maxtokens):
+async def chatoize(messages,systemPrompt,clientUser):
+    formated = [
+        {"role": "system",
+        "content": [
+            {"type": "text",
+            "text": systemPrompt}]}]
+    msgs = [message async for message in messages][::-1]
+    addedAttachment = False  # adding only one latest probably is good idea
+    for message in msgs:
+        tmpmsg = {
+            "role": message.author.display_name,
+            "content": []}
+        #if message.author == clientUser:
+        #    tmpmsg["role"] = "assistant"
+        #else:
+        #    tmpmsg["role"] = "user"
+        if message.content:
+            tmpmsg["content"] += [{"type": "text", "text": await clearDebug(message.content)}]
+        if message.attachments and not addedAttachment:
+            for atm in message.attachments:
+                if "image" in atm.content_type:
+                    width, height = atm.width, atm.height
+                    image = Image.open(BytesIO(await atm.read()))
+                    if width*height > 65_536:  # more than roughly 256x256 cause i don wanna deal with a lot of data
+                        K = (width*height / 65_536)**0.5  # need to resize original
+                        image = image.resize((int(width / K), int(height / K)), resample=Image.Resampling.HAMMING)
+                    with BytesIO() as OF:
+                        image.save(OF, format="JPEG")
+                        image = OF.getvalue()
+                    
+                    B64_image = base64.b64encode(image).decode('utf-8')
+                    tmpmsg["content"] += [{"type": "image_url", "image_url": {"url": f"data:{atm.content_type};base64,{B64_image}"}}]
+                    #addedAttachment = True
+        formated += [tmpmsg]
+
+    return formated
+
+
+async def llm_chat_completion(message,model,messages):
     global LLM_LOCK
     try:
         llmResponse=await clientOAI.chat.completions.create(
                 model=model,
-                max_tokens=maxTokens,
-                temperature=LLM_CONF[f"{message.guild.id}"]["curTemp"],
-                presence_penalty=LLM_CONF[f"{message.guild.id}"]["presencePenalty"],
-                frequency_penalty=LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"],
-                n=1,
-                echo=False,
-                stream=True,
-                #stop=[],
-                top_p=1
-                )
-        full_content=f"`{prompt}`"
-        old_content=f""
-        tokens=0
-        index=0
-        T1=time.time()
-        async for event in llmResponse:
-            chunk=event.choices[0].text
-            print(chunk,end="")
-            full_content+=chunk
-            tokens+=1
-            T2 = time.time()
-            if T2 - T1 > 1:  # > 1 seconds later
-                T1 = T2
-                try:
-                    await message.edit_original_message(content=full_content[len(old_content):])
-                except:
-                    await message.edit_original_message(content="couldnt update stream")
-                    LLM_LOCK=0
-                    return
-            index+=1
-        if maxtokens==tokens or maxtokens-1==tokens:
-            await message.edit_original_message(content=full_content[len(old_content):]+" `<TL>`")
-        else:
-            await message.edit_original_message(content=full_content[len(old_content):]+" `<EOT>`")
-        print(f"\nTotal tokens generated: {tokens}\n")
-        LLM_LOCK=0
-    except Exception as e:
-        print(e)
-        await message.edit_original_message(content=f"```{e}```")
-        LLM_LOCK=0
-
-
-async def llm_completion(message,prompt,model,maxtokens):
-    global LLM_LOCK
-    try:
-        llmResponse=await clientOAI.completions.create(
-                model=model,
                 messages=messages,
-                max_tokens=maxTokens,
+                max_tokens=LLM_CONF[f"{message.guild.id}"]["maxTokens"],
                 temperature=LLM_CONF[f"{message.guild.id}"]["curTemp"],
                 presence_penalty=LLM_CONF[f"{message.guild.id}"]["presencePenalty"],
                 frequency_penalty=LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"],
                 n=1,
-                echo=False,
                 stream=True,
                 stop=BANNED_STRINGS,
-                top_p=1
-                )
+                top_p=1)
         full_content=""
-        old_content=""
         tokens=0
         index=0
         T1 = time.time()
         async for event in llmResponse:
-            chunk=event.choices[0].text
+            chunk=event.choices[0].delta.content
             print(chunk,end="")
             full_content+=chunk
             tokens+=1
             T2 = time.time()
             if T2 - T1 > 1:  # > 1 seconds later
                 T1 = T2
-                try:
-                    message=await message.edit(full_content[len(old_content):])
-                except:
-                    old_content=message.content
-                    message=await message.channel.send(full_content[len(old_content):])
+                if len(full_content) + len(chunk) + 8 < 2000: # can append chunk and info
+                    message=await message.edit(full_content)
+                else:
+                    message=await message.edit(full_content + " `<OOS>`")
+                    print("2000 exceeded")
+                    return
             index+=1
-        if maxtokens==tokens or maxtokens-1==tokens:
-            message=await message.edit(full_content[len(old_content):]+" `<TL>`")
+        maxTokens = LLM_CONF[f"{message.guild.id}"]["maxTokens"]
+        if tokens in range(maxTokens-1, maxTokens+2):
+            message=await message.edit(full_content+" `<TL>`")
         else:
-            message=await message.edit(full_content[len(old_content):]+" `<EOT>`")
+            message=await message.edit(full_content+" `<EOT>`")
         print(f"\nTotal tokens generated: {tokens}\n")
         LLM_LOCK=0
     except Exception as e:
@@ -155,7 +144,7 @@ async def llm_completion(message,prompt,model,maxtokens):
 async def on_ready():
     phrase="PyCord Is Up"
     print("\n".join(["/"+"-"*(len(phrase))+"\\","|"+f"{phrase}"+"|","\\"+"-"*(len(phrase))+"/"]))
-    #status_changer.start()
+    status_changer.start()
     settings_dumper.start()
 
 previnfo=("-1","-1")
@@ -188,13 +177,12 @@ async def on_message(message):
         # No need for that anymore since public -> if message.author.id in LLM_USERS:
         if 1:
             global LLM_LOCK
-            Socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             if LLM_LOCK==0:
+                Socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
                 if Socket.connect_ex((OAI_IP,OAI_PORT))!=0:
                     await message.channel.send("Python module llama_cpp.server is **down**")
                     print(Socket.connect_ex((OAI_IP,OAI_PORT)),"Python module llama_cpp.server is **down**")
-                    return
-                
+                    return 
                 LLM_LOCK=1
 
                 clientUser=await message.guild.fetch_member(client.user.id)
@@ -204,28 +192,27 @@ async def on_message(message):
                     await message.channel.send("Please fully initialise config (/amadeus configure)")
                     return
                 else:
-                    discordLimit=LLM_CONF[f"{message.guild.id}"]["histLimit"]
-                    maxTokens=LLM_CONF[f"{message.guild.id}"]["maxTokens"]
+                    maxMessages=LLM_CONF[f"{message.guild.id}"]["histLimit"]
                 llmModel=await get_model()
                 print("Model: ",llmModel)
-                discordHistory=message.channel.history(limit=discordLimit)
+                discordHistory=message.channel.history(limit=maxMessages)
                 TIME=datetime.strptime(str(datetime.utcnow()),'%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=tz.tzutc()).astimezone(HOST_TIMEZONE)
                 try:
-                    prompt=await globals()[LLM_CONF[f"{message.guild.id}"]["currentPrompter"]](message,LLM_CONF[f"{message.guild.id}"]["systemPrompt"].format(
-                        channel=message.channel.name,
-                        guild=message.guild.name,
-                        messages=LLM_CONF[f"{message.guild.id}"]["histLimit"],
-                        llm_model=llmModel,
-                        bot_name=clientUser.display_name,
-                        owner_name=clientCreator.display_name),  # <--- .format() ends here
-                        clientUser, discordHistory, LLM_CONF[f"{message.guild.id}"]["prompterStyle"])  # <--- prompt func call ends here
+                    prompt=await chatoize(discordHistory,TIME.strftime(LLM_CONF[f"{message.guild.id}"]["systemPrompt"].format(
+                            channel=message.channel.name,
+                            guild=message.guild.name,
+                            messages=LLM_CONF[f"{message.guild.id}"]["histLimit"],
+                            llm_model=llmModel,
+                            bot_name=clientUser.display_name,
+                            owner_name=clientCreator.display_name)),  # <--- .format() & strftime ends here
+                        clientUser)  # <--- prompt func call ends here
                 except Exception as e:
                     LLM_LOCK=0
                     await message.channel.send(f"Could not create prompt ({e})")
-                prompt = TIME.strftime(prompt)
-                print(prompt)
+                #print(prompt)
+
                 msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
-                llmAnswer=await llm_completion(msg,prompt,llmModel,maxTokens)
+                llmAnswer=await llm_chat_completion(msg,llmModel,prompt)
             else:
                 await message.channel.send("LLM_LOCK is still **ON**")
 
@@ -269,18 +256,17 @@ async def viewconf(message):
     else:
         await message.respond(f"""```python\n{LLM_CONF[f"{message.guild.id}"]}
 Available prompt vars are:
-{llmContextVars}
+{LLM_VARS}
 Keep in mind prompt will be processed with strftime```""")
 
 
 @amadeus.command(name="configure",description="reconfigure Amadeus")
-async def reconfigure(message,history: discord.Option(int,name='messages',description=f'messages in history (odd ints recomended), default is {discordLimit}',required=False),
-                      tokens: discord.Option(int,name='tokens',description=f'max n tokens to predict, default is {maxTokens}',required=False),
-                      temp: discord.Option(float,name='temperature',description=f'higher is more random, default is {curTemperature}',required=False),
-                      pp: discord.Option(float,name='presence_penalty',description=f'Presence Penalty, default is {presencePenalty}',required=False),
-                      fp: discord.Option(float,name='frequency_penalty',description=f'Frequency Penalty, default is {frequencyPenalty}',required=False),
-                      prompter: discord.Option(str,name_localizations={'en-US': 'prompter', 'ru': 'prompter'},description_localizations={'en-US': 'prompt template', 'ru': 'шаблон промпта'},required=False,choices=availablePrompters),
-                      style: discord.Option(str,name_localizations={'en-US': 'style', 'ru': 'стиль'},description_localizations={'en-US': 'template style', 'ru': 'стиль шаблона'}, required=False, choices=("USER-ASSISTANT","NICKNAME")),
+async def reconfigure(message,history: discord.Option(int,name='messages',description=f'messages in history (odd ints recomended), default is {MSG_LIMIT}',required=False),
+                      tokens: discord.Option(int,name='tokens',description=f'max n tokens to predict, default is {MAX_TOKENS}',required=False),
+                      temp: discord.Option(float,name='temperature',description=f'higher is more random, default is {CUR_TEMP}',required=False),
+                      pp: discord.Option(float,name='presence_penalty',description=f'Presence Penalty, default is {PRES_PEN}',required=False),
+                      fp: discord.Option(float,name='frequency_penalty',description=f'Frequency Penalty, default is {FREQ_PEN}',required=False),
+                      #style: discord.Option(str,name_localizations={'en-US': 'style', 'ru': 'стиль'},description_localizations={'en-US': 'template style', 'ru': 'стиль шаблона'}, required=False, choices=("USER-ASSISTANT","NICKNAME")),
                       prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'initial (system) prompt', 'ru': 'начальный (системный) промпт'},required=False)):
     if message.author.id in LLM_ADMINS:
         global LLM_CONF
@@ -306,14 +292,10 @@ async def reconfigure(message,history: discord.Option(int,name='messages',descri
             LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"]=fp
         elif "frequencyPenalty" not in LLM_CONF[f"{message.guild.id}"]:
             LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"]=1.0
-        if prompter:
-            LLM_CONF[f"{message.guild.id}"]["currentPrompter"]=prompter
-        elif "currentPrompter" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["currentPrompter"]=availablePrompters[0]
-        if style:
-            LLM_CONF[f"{message.guild.id}"]["prompterStyle"]=style
-        elif "prompterStyle" not in LLM_CONF[f"{message.guild.id}"]:
-            LLM_CONF[f"{message.guild.id}"]["prompterStyle"]="USER-ASSISTANT"
+        #if style:
+        #    LLM_CONF[f"{message.guild.id}"]["prompterStyle"]=style
+        #elif "prompterStyle" not in LLM_CONF[f"{message.guild.id}"]:
+        #    LLM_CONF[f"{message.guild.id}"]["prompterStyle"]="USER-ASSISTANT"
         if prompt:
             LLM_CONF[f"{message.guild.id}"]["systemPrompt"]=prompt
         elif "systemPrompt" not in LLM_CONF[f"{message.guild.id}"]:
@@ -406,8 +388,6 @@ async def toggle(message,server: discord.Option(str,name_localizations={'en-US':
             await message.respond('already running')
     else:
         await message.respond(f'nah')
-"""
-# ======
 
 @ServComs.command(name_localizations={'en-US':'send','ru':'отправить'},description_localizations={'en-US':'Send stdin to terminal','ru':'Отправить stdin в терминал'})
 async def send(message,stdmess: discord.Option(str,name_localizations={'en-US': 'std', 'ru': 'строка'},description_localizations={'en-US': 'stdin input', 'ru': 'stdin ввод'},required=True)):
@@ -424,6 +404,9 @@ async def send(message,stdmess: discord.Option(str,name_localizations={'en-US': 
                     await message.respond("EC0")
     else:
         await message.respond(f'nah')
+"""
+# =====
+
 @client.event
 async def on_voice_state_update(member,before,after):
         if after.channel==None:

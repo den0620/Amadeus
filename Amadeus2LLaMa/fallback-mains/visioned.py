@@ -72,7 +72,7 @@ async def enc64_img(path):
         return base64.b64encode(image.read()).decode('utf-8')
 
 async def main():
-    base64_image = await enc64_img("./image.png")
+    base64_image = await enc64_img("/home/den0620/captcha.jpg")
 
     test_messages = [
         {
@@ -82,6 +82,7 @@ async def main():
                  "text": "Say what do you see on this pic"},
                 {"type": "image_url",
                  "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                #"image_url": {"url": f"https://s.selfre.cc/assets/storage/image.jpg"}}
             ]
         }
     ]
