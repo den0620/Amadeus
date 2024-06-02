@@ -64,14 +64,16 @@ async def chatoize(messages,systemPrompt,clientUser):
             "text": systemPrompt}]}]
     msgs = [message async for message in messages][::-1]
     addedAttachment = False  # adding only one latest probably is good idea
+    refactorStyle = LLM_CONF[f"{msgs[0].guild.id}"]["prompterStyle"] == "USER-ASSISTANT"
     for message in msgs:
         tmpmsg = {
             "role": message.author.display_name,
             "content": []}
-        #if message.author == clientUser:
-        #    tmpmsg["role"] = "assistant"
-        #else:
-        #    tmpmsg["role"] = "user"
+        if refactorStyle:
+            if message.author == clientUser:
+                tmpmsg["role"] = "assistant"
+            else:
+                tmpmsg["role"] = "user"
         if message.content:
             tmpmsg["content"] += [{"type": "text", "text": await clearDebug(message.content)}]
         if message.attachments and not addedAttachment:
@@ -79,11 +81,11 @@ async def chatoize(messages,systemPrompt,clientUser):
                 if "image" in atm.content_type:
                     width, height = atm.width, atm.height
                     image = Image.open(BytesIO(await atm.read()))
-                    if width*height > 65_536:  # more than roughly 256x256 cause i don wanna deal with a lot of data
-                        K = (width*height / 65_536)**0.5  # need to resize original
+                    if width*height > 65_536:  # more than roughly 256x256 cause i don wanna deal with starship of a pic
+                        K = (width*height / 65_536)**0.5  # coef for each dimension
                         image = image.resize((int(width / K), int(height / K)), resample=Image.Resampling.HAMMING)
                     with BytesIO() as OF:
-                        image.save(OF, format="JPEG")
+                        image.save(OF, format=atm.content_type[6:])
                         image = OF.getvalue()
                     
                     B64_image = base64.b64encode(image).decode('utf-8')
@@ -209,7 +211,7 @@ async def on_message(message):
                 except Exception as e:
                     LLM_LOCK=0
                     await message.channel.send(f"Could not create prompt ({e})")
-                #print(prompt)
+                #print(prompt)  # to view assembled chat
 
                 msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
                 llmAnswer=await llm_chat_completion(msg,llmModel,prompt)
@@ -266,7 +268,7 @@ async def reconfigure(message,history: discord.Option(int,name='messages',descri
                       temp: discord.Option(float,name='temperature',description=f'higher is more random, default is {CUR_TEMP}',required=False),
                       pp: discord.Option(float,name='presence_penalty',description=f'Presence Penalty, default is {PRES_PEN}',required=False),
                       fp: discord.Option(float,name='frequency_penalty',description=f'Frequency Penalty, default is {FREQ_PEN}',required=False),
-                      #style: discord.Option(str,name_localizations={'en-US': 'style', 'ru': 'стиль'},description_localizations={'en-US': 'template style', 'ru': 'стиль шаблона'}, required=False, choices=("USER-ASSISTANT","NICKNAME")),
+                      style: discord.Option(str,name_localizations={'en-US': 'style', 'ru': 'стиль'},description_localizations={'en-US': 'template style', 'ru': 'стиль шаблона'}, required=False, choices=("USER-ASSISTANT","NICKNAME")),
                       prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'initial (system) prompt', 'ru': 'начальный (системный) промпт'},required=False)):
     if message.author.id in LLM_ADMINS:
         global LLM_CONF
@@ -292,10 +294,10 @@ async def reconfigure(message,history: discord.Option(int,name='messages',descri
             LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"]=fp
         elif "frequencyPenalty" not in LLM_CONF[f"{message.guild.id}"]:
             LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"]=1.0
-        #if style:
-        #    LLM_CONF[f"{message.guild.id}"]["prompterStyle"]=style
-        #elif "prompterStyle" not in LLM_CONF[f"{message.guild.id}"]:
-        #    LLM_CONF[f"{message.guild.id}"]["prompterStyle"]="USER-ASSISTANT"
+        if style:
+            LLM_CONF[f"{message.guild.id}"]["prompterStyle"]=style
+        elif "prompterStyle" not in LLM_CONF[f"{message.guild.id}"]:
+            LLM_CONF[f"{message.guild.id}"]["prompterStyle"]="USER-ASSISTANT"
         if prompt:
             LLM_CONF[f"{message.guild.id}"]["systemPrompt"]=prompt
         elif "systemPrompt" not in LLM_CONF[f"{message.guild.id}"]:
