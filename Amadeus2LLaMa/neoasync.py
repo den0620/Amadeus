@@ -268,6 +268,7 @@ async def on_message(message):
                 except Exception as e:
                     LLM_LOCK=0
                     await message.channel.send(f"Could not create prompt ({e})")
+                prompt = TIME.strftime(prompt)
                 print(prompt)  # to view assembled prompt
 
                 msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
