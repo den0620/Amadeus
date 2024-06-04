@@ -239,7 +239,7 @@ async def on_message(message):
             if LLM_LOCK==0:
                 Socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
                 if Socket.connect_ex((OAI_IP,OAI_PORT))!=0:
-                    await message.channel.send("OAI-compatible server is **down**")
+                    await message.reply("OAI-compatible server is **down**")
                     print(Socket.connect_ex((OAI_IP,OAI_PORT)),"OAI-compatible server is **down**")
                     return 
                 LLM_LOCK=1
@@ -248,7 +248,7 @@ async def on_message(message):
                 clientCreator=await message.guild.fetch_member(LLM_ADMINS[0])
                 if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
                     LLM_LOCK=0
-                    await message.channel.send("Please fully initialise config (/amadeus configure)")
+                    await message.reply("Please fully initialise config (/amadeus configure)")
                     return
                 else:
                     maxMessages=LLM_CONF[f"{message.guild.id}"]["histLimit"]
@@ -267,13 +267,13 @@ async def on_message(message):
                         clientUser, discordHistory, LLM_CONF[f"{message.guild.id}"]["prompterStyle"])  # <--- prompt func call ends here
                 except Exception as e:
                     LLM_LOCK=0
-                    await message.channel.send(f"Could not create prompt ({e})")
+                    await message.reply(f"Could not create prompt ({e})")
                 print(prompt)  # to view assembled prompt
 
-                msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
+                msg = await message.reply("Reading tokens... <a:loadingP:1055187594973036576>")
                 llmAnswer=await llm_legacy_completion(msg,llmModel,prompt)
             else:
-                await message.channel.send("LLM_LOCK is still **ON**")
+                await message.reply("LLM_LOCK is still **ON**")
 
 
 
@@ -285,8 +285,8 @@ async def skipturn(message):
 @amadeus.command(name="pov",description="write text as bot")
 async def sendtext(message, text: discord.Option(str,name_localizations={'en-US': 'text', 'ru': 'текст'},description_localizations={'en-US': 'just a text', 'ru': 'просто текст'},required=True)):
     if message.author.id in LLM_ADMINS: 
-        await message.respond("Force called message.channel.send, you can hide that",ephemeral=True)
-        await message.channel.send(text)
+        await message.respond("Force called message.reply, you can hide that",ephemeral=True)
+        await message.reply(text)
     else:
         await message.respond("You cant do that",ephemeral=True)
 
@@ -297,7 +297,7 @@ async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US'
         LLM_LOCK=1
         if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
             LLM_LOCK=0
-            await message.channel.send("Please fully initialise config (/amadeus configure)")
+            await message.reply("Please fully initialise config (/amadeus configure)")
             return
         else:
             maxTokens=LLM_CONF[f"{message.guild.id}"]["maxTokens"]
