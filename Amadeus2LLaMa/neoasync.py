@@ -270,7 +270,7 @@ async def on_message(message):
                     await message.reply(f"Could not create prompt ({e})")
                 print(prompt)  # to view assembled prompt
 
-                msg = await message.reply("Reading tokens... <a:loadingP:1055187594973036576>")
+                msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
                 llmAnswer=await llm_legacy_completion(msg,llmModel,prompt)
             else:
                 await message.reply("LLM_LOCK is still **ON**")
@@ -285,8 +285,8 @@ async def skipturn(message):
 @amadeus.command(name="pov",description="write text as bot")
 async def sendtext(message, text: discord.Option(str,name_localizations={'en-US': 'text', 'ru': 'текст'},description_localizations={'en-US': 'just a text', 'ru': 'просто текст'},required=True)):
     if message.author.id in LLM_ADMINS: 
-        await message.respond("Force called message.reply, you can hide that",ephemeral=True)
-        await message.reply(text)
+        await message.respond("Force called message.channel.send, you can hide that",ephemeral=True)
+        await message.channel.send(text)
     else:
         await message.respond("You cant do that",ephemeral=True)
 
