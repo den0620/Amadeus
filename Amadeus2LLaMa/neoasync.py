@@ -40,7 +40,7 @@ async def template_chatml(message,init,clientUser,discordHistory,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     return """<|im_start|>system
 """+init+"""<|im_end|>
-"""+"\n".join(["<|im_start|>\""+chooseRole(msg.author.display_name,clientUser.display_name,style)+"\"\n"+await clearDebug(msg.content)+"<|im_end|>" for msg in llmHistory])+"""
+"""+"\n".join(["<|im_start|>\""+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\"\n"+await clearDebug(msg.content)+"<|im_end|>" for msg in llmHistory])+"""
 <|im_start|>"""+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+"""
 """
 
