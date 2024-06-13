@@ -151,7 +151,8 @@ async def llm_get_pic_description(model,messages):
         print(exc)
         return exc
 
-async def llm_legacy_completion(message,model,prompt):
+
+async def llm_legacy_completion(message,model,prompt,echoing):
     global LLM_LOCK
     try:
         llmResponse=await OAI_CLIENT.completions.create(
@@ -162,12 +163,15 @@ async def llm_legacy_completion(message,model,prompt):
                 presence_penalty=LLM_CONF[f"{message.guild.id}"]["presencePenalty"],
                 frequency_penalty=LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"],
                 n=1,
-                echo=False,
+                echo=echoing,
                 stream=True,
                 stop=BANNED_STRINGS,
                 top_p=1
                 )
-        full_content=""
+        if not echoing:
+            full_content=""
+        else:
+            full_content=prompt
         tokens=0
         index=0
         T1 = time.time()
@@ -179,12 +183,24 @@ async def llm_legacy_completion(message,model,prompt):
             T2 = time.time()
             if T2 - T1 > 1:  # > 1 seconds later
                 T1 = T2
-                if len(full_content) + len(chunk) + 8 < 2000: # can append chunk and info
-                    message=await message.edit(full_content)
+                if not echoing:
+                    if len(full_content) + len(chunk) + 8 < 2000: # can append chunk and info
+                        message=await message.edit(full_content)
+                    else:
+                        message=await message.edit(full_content + " `<OOS>`")
+                        print("2000 exceeded")
+                        # terminate oai response??
+                        LLM_LOCK=0
+                        return
                 else:
-                    message=await message.edit(full_content + " `<OOS>`")
-                    print("2000 exceeded")
-                    return
+                    if len(full_content) + len(chunk) + 8 < 2000:
+                        await message.edit_original_response(content=full_content)
+                    else:
+                        await message.edit_original_response(content=full_content + " `<OOS>`")
+                        print("2000 exceeded")
+                        # gah how to fucking terminate OAI call???????
+                        LLM_LOCK=0
+                        return
             index+=1
         maxTokens = LLM_CONF[f"{message.guild.id}"]["maxTokens"]
         if tokens in range(maxTokens-1, maxTokens+2):
@@ -273,7 +289,7 @@ async def on_message(message):
                 print(prompt)  # to view assembled prompt
 
                 msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
-                llmAnswer=await llm_legacy_completion(msg,llmModel,prompt)
+                llmAnswer=await llm_legacy_completion(msg,llmModel,prompt,False)
             else:
                 await message.reply("LLM_LOCK is still **ON**")
 
@@ -301,12 +317,10 @@ async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US'
             LLM_LOCK=0
             await message.reply("Please fully initialise config (/amadeus configure)")
             return
-        else:
-            maxTokens=LLM_CONF[f"{message.guild.id}"]["maxTokens"]
 
         llmModel=await get_model()
         msg = await message.respond("Reading tokens... <a:loadingP:1055187594973036576>")
-        await llm_completion_itr(msg,prompt,llmModel,maxTokens)
+        await llm_legacy_completion(msg,llmModel,prompt,True) # <-- ECHO IN STREAM DOESNT EVEN FUCKING WORK 'LL REMOVE THIS SOON
 
 
 @amadeus.command(name="viewconf",description="view Amadeus config")
