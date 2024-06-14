@@ -116,6 +116,8 @@ if __name__=="__main__":
 OAI_CLIENT=AsyncOpenAI(base_url=f"http://{OAI_IP}:{OAI_PORT}/v1",api_key=APIKEY.rstrip())
 
 BANNED_STRINGS=["\n\n","\n##","\n\"","\nAss","\nASS","\nUser","\nUSER", "</s>", "<|"]
+LONGEST_STRING=max([len(string) for string in BANNED_STRINGS])
+print("got longest stop length")
 # Below are default if not set
 MSG_LIMIT=15
 MAX_TOKENS=386
@@ -192,7 +194,7 @@ async def llm_legacy_completion(message,model,prompt,chat=True):
                     LLM_LOCK=0
                     return
             index+=1
-        if event.choices[0].finish_reason == "stop" or any([seq in full_content for seq in BANNED_STRINGS]):
+        if event.choices[0].finish_reason == "stop" or any([seq in full_content[len(full_content)-LONGEST_STRING:] for seq in BANNED_STRINGS]):
             if event.choices[0].finish_reason == "stop":
                 sliceto = len(full_content)
             else:
