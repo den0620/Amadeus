@@ -109,7 +109,6 @@ OAI_PORT=8567       # Legacy Completions
 LLM_LOCK=0
 
 LLM_ADMINS=[573799615074271253,527505544261664798]
-#          den0620            DegrOwenn
 LLM_CHANNELS=[1092510095029567519,1091400893406126141,1175364273061494785,1176156428168351804]
 if __name__=="__main__":
     with open(f"{os.path.dirname(os.path.realpath(__file__))}/APIKEY.env","r") as t:
@@ -152,7 +151,7 @@ async def llm_get_pic_description(model,messages):
         return exc
 
 
-async def llm_legacy_completion(message,model,prompt,echoing):
+async def llm_legacy_completion(message,model,prompt,chat=True):
     global LLM_LOCK
     try:
         llmResponse=await OAI_CLIENT.completions.create(
@@ -163,55 +162,60 @@ async def llm_legacy_completion(message,model,prompt,echoing):
                 presence_penalty=LLM_CONF[f"{message.guild.id}"]["presencePenalty"],
                 frequency_penalty=LLM_CONF[f"{message.guild.id}"]["frequencyPenalty"],
                 n=1,
-                echo=echoing,
+                echo=False,
                 stream=True,
                 stop=BANNED_STRINGS,
                 top_p=1
                 )
-        if not echoing:
-            full_content=""
-        else:
-            full_content=prompt
-        tokens=0
-        index=0
+        full_content = "" if chat else prompt
+        index = 0
         T1 = time.time()
         async for event in llmResponse:
-            chunk=event.choices[0].text
-            print(chunk,end="")
-            full_content+=chunk
-            tokens+=1
+            chunk = event.choices[0].text
+            #print(chunk, end="")
+            full_content += chunk
             T2 = time.time()
             if T2 - T1 > 1:  # > 1 seconds later
                 T1 = T2
-                if not echoing:
-                    if len(full_content) + len(chunk) + 8 < 2000: # can append chunk and info
-                        message=await message.edit(full_content)
+                if len(full_content) + len(chunk) + 8 < 2000: # can append chunk and info
+                    if chat:
+                        message = await message.edit(full_content)
                     else:
-                        message=await message.edit(full_content + " `<OOS>`")
-                        print("2000 exceeded")
-                        # terminate oai response??
-                        LLM_LOCK=0
-                        return
-                else:
-                    if len(full_content) + len(chunk) + 8 < 2000:
                         await message.edit_original_response(content=full_content)
+                else:
+                    await llmResponse.close()
+                    if chat:
+                        message = await message.edit(full_content[0:1992] + "`<OOS>`")
                     else:
-                        await message.edit_original_response(content=full_content + " `<OOS>`")
-                        print("2000 exceeded")
-                        # gah how to fucking terminate OAI call???????
-                        LLM_LOCK=0
-                        return
+                        await message.edit_original_response(content=full_content[0:1992] + "`<OOS>`")
+                    print("2000 exceeded")
+                    LLM_LOCK=0
+                    return
             index+=1
-        maxTokens = LLM_CONF[f"{message.guild.id}"]["maxTokens"]
-        if tokens in range(maxTokens-1, maxTokens+2):
-            message=await message.edit(full_content+" `<TL>`")
+        if event.choices[0].finish_reason == "stop" or any([seq in full_content for seq in BANNED_STRINGS]):
+            if event.choices[0].finish_reason == "stop":
+                sliceto = len(full_content)
+            else:
+                sliceto = len(full_content) - len(chunk) + 1
+            if chat:
+                message=await message.edit(full_content[:sliceto]+"`<EOT>`")
+            else:
+                await message.edit_original_response(content=full_content[:sliceto]+"`<EOT>`")
         else:
-            message=await message.edit(full_content+" `<EOT>`")
-        print(f"\nTotal tokens generated: {tokens}\n")
+            if chat:
+                message=await message.edit(full_content[:len(full_content)-len(chunk)+1]+"`<TL>`")
+                # actually full_content - chunk looks like koboldcpp specific since before when
+                # i was using llamacpp all was alright
+            else:
+                await message.edit_original_response(content=full_content[:len(full_content)-len(chunk)+1]+"`<TL>`")
+        await llmResponse.close()
         LLM_LOCK=0
     except Exception as e:
         print(e)
-        await message.edit(f"```{e}```")
+        if chat:
+            await message.edit(f"```{e}```")
+        else:
+            await message.edit_original_response(content=f"```{e}```")
         LLM_LOCK=0
 
 
@@ -289,7 +293,7 @@ async def on_message(message):
                 print(prompt)  # to view assembled prompt
 
                 msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
-                llmAnswer=await llm_legacy_completion(msg,llmModel,prompt,False)
+                llmAnswer=await llm_legacy_completion(msg,llmModel,prompt)
             else:
                 await message.reply("LLM_LOCK is still **ON**")
 
@@ -317,10 +321,9 @@ async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US'
             LLM_LOCK=0
             await message.reply("Please fully initialise config (/amadeus configure)")
             return
-
         llmModel=await get_model()
         msg = await message.respond("Reading tokens... <a:loadingP:1055187594973036576>")
-        await llm_legacy_completion(msg,llmModel,prompt,True) # <-- ECHO IN STREAM DOESNT EVEN FUCKING WORK 'LL REMOVE THIS SOON
+        await llm_legacy_completion(msg,llmModel,prompt,chat=False)
 
 
 @amadeus.command(name="viewconf",description="view Amadeus config")
@@ -404,8 +407,14 @@ async def hardware(message, operator: discord.Option(str,name="exec",description
         ans=str(ans)[:1991]+"..."
     await message.respond(f"```{ans}```")
 
-
-
+@amadeus.command(name="unlock",description="force unlock LLM if smth gone wrong")
+async def unlock(message):
+    if message.author.id in LLM_ADMINS:
+        global LLM_LOCK
+        LLM_LOCK = 0
+        await message.respond(f"LLM_LOCK now should be **0**")
+    else:
+        await message.respond(f"nah")
 
 
 @client.event
