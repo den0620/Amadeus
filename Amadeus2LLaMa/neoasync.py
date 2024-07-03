@@ -82,7 +82,7 @@ async def template_gemma(message,init,clientUser,discordHistory,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
     return f"""{init}
-""" + "\n".join(["<start_of_turn>"+msg+"<end_of_turn>" for msg in msgs]) + f"\n<start_of_turn>{gen}"
+""" + "\n".join(["<start_of_turn>"+msg+"<end_of_turn>" for msg in msgs]) + f"\n<start_of_turn>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\n"
 
 async def template_guanaco(message,init,clientUser,discordHistory,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
