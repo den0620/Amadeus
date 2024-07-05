@@ -80,9 +80,8 @@ async def template_velara(message,init,clientUser,discordHistory,style):
 
 async def template_gemma(message,init,clientUser,discordHistory,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
     return f"""{init}
-""" + "\n".join(["<start_of_turn>"+msg+"<end_of_turn>" for msg in msgs]) + f"\n<start_of_turn>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\n"
+""" + "\n".join(["<start_of_turn>"+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\n"+await clearDebug(msg.content)+"<end_of_turn>" for msg in llmHistory]) + f"\n<start_of_turn>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\n"
 
 async def template_guanaco(message,init,clientUser,discordHistory,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
@@ -115,7 +114,7 @@ if __name__=="__main__":
         APIKEY=str(t.read())
 OAI_CLIENT=AsyncOpenAI(base_url=f"http://{OAI_IP}:{OAI_PORT}/v1",api_key=APIKEY.rstrip())
 
-BANNED_STRINGS=["\n\n","\n##","\n\"","\nAss","\nASS","\nUser","\nUSER", "</s>", "<|"]
+BANNED_STRINGS=["\n\n\n","\n##","\n\"","\nAss","\nASS","\nUser","\nUSER", "</s>", "<|"]
 LONGEST_STRING=max([len(string) for string in BANNED_STRINGS])
 print("got longest stop length")
 # Below are default if not set
