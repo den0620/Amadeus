@@ -232,6 +232,8 @@ previnfo=("-1","-1")
 async def status_changer():
     global previnfo
     gpus=GPUtil.getGPUs()
+    if int(gpus[0].temperature)>=90:
+        subprocess.check_output("killall koboldcpp-linux-x64-cuda1210", shell=True).decode()
     if int(gpus[0].memoryUsed)!=previnfo[0] or int(gpus[0].temperature)!=previnfo[1]:
         status=discord.Status.dnd
         ActivityName=f"{gpus[0].name}@{int(gpus[0].temperature)}°C {int(gpus[0].memoryUsed)}MiB/{int(gpus[0].memoryTotal)}MiB"
