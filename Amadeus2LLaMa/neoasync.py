@@ -27,8 +27,10 @@ async def chooseRole(author,client,style):
         return "assistant"
     return "user"
 
-async def template_custom(message,init,clientUser,discordHistory,style):
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+async def template_custom(message,init,clientUser,discordHistory,delfirst,style):
+    llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
+    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in llmHistory][::-1]
     return f"""{init}
 
 
@@ -36,16 +38,18 @@ async def template_custom(message,init,clientUser,discordHistory,style):
 '''.join(msgs)}
 \"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\":"""
 
-async def template_chatml(message,init,clientUser,discordHistory,style):
+async def template_chatml(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return """<|im_start|>system
 """+init+"""<|im_end|>
 """+"\n".join(["<|im_start|>\""+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\"\n"+await clearDebug(msg.content)+"<|im_end|>" for msg in llmHistory])+"""
 <|im_start|>"""+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+"""
 """
 
-async def template_nschatml(message,init,clientUser,discordHistory,style):
+async def template_nschatml(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     # done:
     return """<|im_system|>
 """+init+"""<|im_end|>
@@ -53,20 +57,23 @@ async def template_nschatml(message,init,clientUser,discordHistory,style):
 <|im_bot|>
 """+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+""":"""
 
-async def template_pygmalion(message,init,clientUser,discordHistory,style): # <- also OpenCAI's template
+async def template_pygmalion(message,init,clientUser,discordHistory,delfirst,style): # <- also OpenCAI's template
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return f'''<|system|>{init}
 
 You shall reply to the user while staying in character, and generate mid-short responses.
 {"".join([f'<|"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}"|>{await clearDebug(msg.content)}' for msg in llmHistory])+f'<|"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}"|>'}'''
 
-async def template_openchat(message,init,clientUser,discordHistory,style):
+async def template_openchat(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
     return "<|end_of_turn|>".join([init]+msgs+[gen])
 
-async def template_velara(message,init,clientUser,discordHistory,style):
+async def template_velara(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
     return f"""### Instruction:
 {init}
@@ -78,18 +85,21 @@ async def template_velara(message,init,clientUser,discordHistory,style):
 ### Response:
 {await chooseRole(clientUser.display_name,clientUser.display_name,style)}:"""
 
-async def template_gemma(message,init,clientUser,discordHistory,style):
+async def template_gemma(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return f"""{init}
 """ + "\n".join(["<start_of_turn>"+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\n"+await clearDebug(msg.content)+"<end_of_turn>" for msg in llmHistory]) + f"\n<start_of_turn>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\n"
 
-async def template_guanaco(message,init,clientUser,discordHistory,style):
+async def template_guanaco(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return f"""### System: {init}
 """ + "\n".join([f"### {await chooseRole(msg.author.display_name,clientUser.display_name,style)}: {await clearDebug(msg.content)}" for msg in llmHistory]) + f"\n### {await chooseRole(clientUser.display_name,clientUser.display_name,style)}: "
 
-async def template_llama3(message,init,clientUser,discordHistory,style):
+async def template_llama3(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
+    llmHistory = llmHistory[1:] if delfirst!=False else llmHistory
     return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
 {init}<|eot_id|>""" + "".join([f"<|start_header_id|>{await chooseRole(msg.author.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n{await clearDebug(msg.content)}<|eot_id|>" for msg in llmHistory]) + f"""<|start_header_id|>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n"""
@@ -252,7 +262,7 @@ async def settings_dumper():
 # LLAMA
 
 @client.event
-async def on_message(message):
+async def on_message(message, override_send=False):
     if message.author==client.user:
         return
     if message.channel.id in LLM_CHANNELS:
@@ -287,15 +297,15 @@ async def on_message(message):
                             llm_model=llmModel,
                             bot_name=clientUser.display_name,
                             owner_name=clientCreator.display_name),  # <--- sysprompt's .format() ends here
-                        clientUser, discordHistory, LLM_CONF[f"{message.guild.id}"]["prompterStyle"])  # <--- prompt func call ends here
+                        clientUser, discordHistory, override_send, LLM_CONF[f"{message.guild.id}"]["prompterStyle"])  # <--- prompt func call ends here
                 except Exception as e:
                     LLM_LOCK=0
                     await message.reply(f"Could not create prompt ({e})")
                 prompt = TIME.strftime(prompt)
 
                 print(prompt)  # to view assembled prompt
-
-                msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>")
+                
+                msg = await message.channel.send("Reading tokens... <a:loadingP:1055187594973036576>") if override_send==False else override_send
                 llmAnswer=await llm_legacy_completion(msg,llmModel,prompt)
             else:
                 await message.reply("LLM_LOCK is still **ON**")
@@ -318,16 +328,34 @@ async def sendtext(message, text: discord.Option(str,name_localizations={'en-US'
 @amadeus.command(name="generate",description="raw OAI Completion call (uses server's config)")
 async def rawgen(message, prompt: discord.Option(str,name_localizations={'en-US': 'prompt', 'ru': 'промпт'},description_localizations={'en-US': 'prompt', 'ru': 'промпт'},required=True)):
     global LLM_LOCK
-    if not LLM_LOCK:
-        LLM_LOCK=1
-        if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
-            LLM_LOCK=0
-            await message.reply("Please fully initialise config (/amadeus configure)")
-            return
-        llmModel=await get_model()
-        msg = await message.respond("Reading tokens... <a:loadingP:1055187594973036576>")
-        await llm_legacy_completion(msg,llmModel,prompt,chat=False)
+    if LLM_LOCK:
+        await message.respond("LLM_LOCK is on")
+        return
 
+    LLM_LOCK=1
+    if f"{message.guild.id}" not in LLM_CONF or any([x not in LLM_CONF[f"{message.guild.id}"] for x in ("histLimit","maxTokens","curTemp","presencePenalty","frequencyPenalty","currentPrompter","prompterStyle","systemPrompt")]):
+        LLM_LOCK=0
+        await message.reply("Please fully initialise config (/amadeus configure)")
+        return
+    llmModel=await get_model()
+    msg = await message.respond("Reading tokens... <a:loadingP:1055187594973036576>")
+    await llm_legacy_completion(msg,llmModel,prompt,chat=False)
+@amadeus.command(name="regenerate",description="on_message but the response is existing message")
+async def regen(interaction):
+    global LLM_LOCK
+    if LLM_LOCK:
+        await interaction.respond("LLM_LOCK is on")
+        return
+    try:
+        message = [msg async for msg in interaction.channel.history(limit=1)][0]
+    except Exception as e:
+        await interaction.respond("Couldn't retrieve message (`{e}`)")
+    clientUser=await message.guild.fetch_member(client.user.id)
+    if message.author != clientUser:
+        await interaction.respond("Last message isn't bot's",ephemeral=True)
+        return
+    await interaction.respond("Trying",ephemeral=True)
+    await on_message(interaction, override_send=message)
 
 @amadeus.command(name="viewconf",description="view Amadeus config")
 async def viewconf(message):
