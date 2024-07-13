@@ -30,7 +30,7 @@ async def chooseRole(author,client,style):
 async def template_custom(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in llmHistory][::-1]
+    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.clean_content)}" async for msg in llmHistory][::-1]
     return f"""{init}
 
 
@@ -43,7 +43,7 @@ async def template_chatml(message,init,clientUser,discordHistory,delfirst,style)
     llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return """<|im_start|>system
 """+init+"""<|im_end|>
-"""+"\n".join(["<|im_start|>\""+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\"\n"+await clearDebug(msg.content)+"<|im_end|>" for msg in llmHistory])+"""
+"""+"\n".join(["<|im_start|>\""+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\"\n"+await clearDebug(msg.clean_content)+"<|im_end|>" for msg in llmHistory])+"""
 <|im_start|>"""+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+"""
 """
 
@@ -53,7 +53,7 @@ async def template_nschatml(message,init,clientUser,discordHistory,delfirst,styl
     # done:
     return """<|im_system|>
 """+init+"""<|im_end|>
-"""+"\n".join([f"<|im_bot|>\n\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}<|im_end|>" if msg.author==clientUser else f"<|im_user|>\n\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}<|im_end|>" for msg in llmHistory])+"""
+"""+"\n".join([f"<|im_bot|>\n\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.clean_content)}<|im_end|>" if msg.author==clientUser else f"<|im_user|>\n\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.clean_content)}<|im_end|>" for msg in llmHistory])+"""
 <|im_bot|>
 """+f"\"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\""+""":"""
 
@@ -63,18 +63,18 @@ async def template_pygmalion(message,init,clientUser,discordHistory,delfirst,sty
     return f'''<|system|>{init}
 
 You shall reply to the user while staying in character, and generate mid-short responses.
-{"".join([f'<|"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}"|>{await clearDebug(msg.content)}' for msg in llmHistory])+f'<|"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}"|>'}'''
+{"".join([f'<|"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}"|>{await clearDebug(msg.clean_content)}' for msg in llmHistory])+f'<|"{await chooseRole(clientUser.display_name,clientUser.display_name,style)}"|>'}'''
 
 async def template_openchat(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.clean_content)}" async for msg in discordHistory][::-1]
     return "<|end_of_turn|>".join([init]+msgs+[gen])
 
 async def template_velara(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
-    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.content)}" async for msg in discordHistory][::-1]
+    msgs=[f"\"{await chooseRole(msg.author.display_name,clientUser.display_name,style)}\": {await clearDebug(msg.clean_content)}" async for msg in discordHistory][::-1]
     return f"""### Instruction:
 {init}
 
@@ -89,20 +89,20 @@ async def template_gemma(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return f"""{init}
-""" + "\n".join(["<start_of_turn>"+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\n"+await clearDebug(msg.content)+"<end_of_turn>" for msg in llmHistory]) + f"\n<start_of_turn>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\n"
+""" + "\n".join(["<start_of_turn>"+await chooseRole(msg.author.display_name,clientUser.display_name,style)+"\n"+await clearDebug(msg.clean_content)+"<end_of_turn>" for msg in llmHistory]) + f"\n<start_of_turn>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}\n"
 
 async def template_guanaco(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     llmHistory = llmHistory[:-1] if delfirst!=False else llmHistory
     return f"""### System: {init}
-""" + "\n".join([f"### {await chooseRole(msg.author.display_name,clientUser.display_name,style)}: {await clearDebug(msg.content)}" for msg in llmHistory]) + f"\n### {await chooseRole(clientUser.display_name,clientUser.display_name,style)}: "
+""" + "\n".join([f"### {await chooseRole(msg.author.display_name,clientUser.display_name,style)}: {await clearDebug(msg.clean_content)}" for msg in llmHistory]) + f"\n### {await chooseRole(clientUser.display_name,clientUser.display_name,style)}: "
 
 async def template_llama3(message,init,clientUser,discordHistory,delfirst,style):
     llmHistory=[msg async for msg in discordHistory][::-1]
     llmHistory = llmHistory[1:] if delfirst!=False else llmHistory
     return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-{init}<|eot_id|>""" + "".join([f"<|start_header_id|>{await chooseRole(msg.author.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n{await clearDebug(msg.content)}<|eot_id|>" for msg in llmHistory]) + f"""<|start_header_id|>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n"""
+{init}<|eot_id|>""" + "".join([f"<|start_header_id|>{await chooseRole(msg.author.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n{await clearDebug(msg.clean_content)}<|eot_id|>" for msg in llmHistory]) + f"""<|start_header_id|>{await chooseRole(clientUser.display_name,clientUser.display_name,style)}<|end_header_id|>\n\n"""
 
 # ===== /Prompters =====
 
