@@ -1,0 +1,13 @@
+[Unit]
+Description=Amadeus
+After=raid-automount.service network-online.target
+
+[Service]
+Type=simple
+User=den0620
+Group=den0620
+WorkingDirectory=/mnt/raid1/Amadeus/Amadeus2LLaMa
+ExecStart=/mnt/raid1/Amadeus/Amadeus2LLaMa/venv/bin/python3 neoasync.py
+
+[Install]
+WantedBy=default.target
